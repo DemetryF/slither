@@ -1,19 +1,32 @@
 use ecolor::Color32;
 use emath::{Pos2, Vec2};
+use serde::{Deserialize, Serialize};
+
+use crate::MassClot;
 
 /// How speed relates to mass
 const MASS_SPEED_COEF: f32 = 20.;
 /// A percent of the slither's mass is losted during boosted movement
 const MASS_LOSS_WHEN_BOOST: f32 = 0.05;
 
+#[derive(Serialize, Deserialize)]
 pub struct Slither {
     pub color: Color32,
+    pub boost: bool,
     pub body: SlitherBody,
 }
 
 impl Slither {
+    pub fn do_move(&mut self, delta_time: f32) {
+        if self.boost {
+            self.move_boosted(delta_time);
+        } else {
+            self.body.do_move(self.speed(), delta_time);
+        }
+    }
+
     /// moves with 2x speed and returns burned mass
-    pub fn move_boosted(&mut self, delta_time: f32) -> f32 {
+    fn move_boosted(&mut self, delta_time: f32) -> f32 {
         self.body.do_move(2. * self.speed(), delta_time);
 
         let lost_mass = MASS_LOSS_WHEN_BOOST * self.body.mass() * delta_time;
@@ -23,8 +36,18 @@ impl Slither {
         lost_mass
     }
 
-    pub fn do_move(&mut self, delta_time: f32) {
-        self.body.do_move(self.speed(), delta_time);
+    pub fn try_eat(&mut self, clot: MassClot) -> bool {
+        let max_distance = self.body.cell_radius() + clot.radius();
+
+        let eaten = self.body.head().distance_sq(clot.pos) < max_distance.powi(2);
+
+        if eaten {
+            self.body.change_mass_by(clot.amount);
+
+            true
+        } else {
+            false
+        }
     }
 
     pub fn speed(&self) -> f32 {
@@ -32,6 +55,7 @@ impl Slither {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct SlitherBody {
     pub direction: Vec2,
     cells: Vec<Pos2>,
@@ -39,6 +63,10 @@ pub struct SlitherBody {
 }
 
 impl SlitherBody {
+    pub fn head(&self) -> Pos2 {
+        self.cells[0]
+    }
+
     pub fn change_mass_by(&mut self, mass: f32) {
         self.mass += mass;
 
@@ -121,5 +149,15 @@ impl SlitherBody {
         let current = self.cells[n];
 
         prev - current
+    }
+
+    pub fn crashed_into(&self, other: &SlitherBody) -> bool {
+        let safe_dist = other.cell_radius() + self.cell_radius();
+
+        other
+            .cells
+            .iter()
+            .find(|&&cell| self.head().distance_sq(cell) < safe_dist.powi(2))
+            .is_some()
     }
 }

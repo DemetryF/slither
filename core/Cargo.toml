@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ecolor = "0.29.1"
-emath = "0.29.1"
+serde = { version = "1.0.210", features = ["derive"] }
+ecolor = { version = "0.29.1", features = ["serde"] }
+emath = { version = "0.29.1", features = ["serde"] }
+
+macros = { path = "../macros" }
