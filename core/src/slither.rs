@@ -18,15 +18,11 @@ pub struct Slither {
 
 impl Slither {
     pub fn do_move(&mut self, delta_time: f32) {
-        if self.boost {
-            self.move_boosted(delta_time);
-        } else {
-            self.body.do_move(self.speed(), delta_time);
-        }
+        self.body.do_move(self.speed(), delta_time);
     }
 
-    /// moves with 2x speed and returns burned mass
-    fn move_boosted(&mut self, delta_time: f32) -> f32 {
+    /// moves with 2x speed and returns burned mass clot
+    pub fn move_boosted(&mut self, delta_time: f32) -> f32 {
         self.body.do_move(2. * self.speed(), delta_time);
 
         let lost_mass = MASS_LOSS_WHEN_BOOST * self.body.mass() * delta_time;
@@ -65,6 +61,10 @@ pub struct SlitherBody {
 impl SlitherBody {
     pub fn head(&self) -> Pos2 {
         self.cells[0]
+    }
+
+    pub fn end(&self) -> Pos2 {
+        *self.cells.last().unwrap()
     }
 
     pub fn change_mass_by(&mut self, mass: f32) {

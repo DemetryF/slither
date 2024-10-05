@@ -1,5 +1,5 @@
 use crate::world::World;
-use crate::SlitherID;
+use crate::{MassClot, SlitherID};
 
 pub struct GameState {
     pub world: World,
@@ -7,9 +7,26 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn update(&mut self) {
+    pub fn update(&mut self, delta_time: f32) {
+        self.moving(delta_time);
         self.eating();
         self.crashings();
+    }
+
+    fn moving(&mut self, delta_time: f32) {
+        for (_, slither) in self.world.slithers.iter_mut() {
+            if slither.boost {
+                let lost_mass = slither.move_boosted(delta_time);
+
+                self.world.clots.add(MassClot {
+                    pos: slither.body.end(),
+                    amount: lost_mass,
+                    color: slither.color,
+                });
+            } else {
+                slither.do_move(delta_time);
+            }
+        }
     }
 
     fn eating(&mut self) {
