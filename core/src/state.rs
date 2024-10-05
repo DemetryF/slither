@@ -5,7 +5,7 @@ use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-use crate::world::World;
+use crate::world::{World, MAX_CLOT_MASS, MIN_CLOT_MASS};
 use crate::{MassClot, SlitherID};
 
 pub struct GameState {
@@ -14,6 +14,13 @@ pub struct GameState {
 }
 
 impl GameState {
+    pub fn new(world: World) -> Self {
+        Self {
+            world,
+            crashed: Vec::new(),
+        }
+    }
+
     pub fn update(&mut self, delta_time: f32) {
         self.moving(delta_time);
         self.eating();
@@ -97,6 +104,3 @@ impl GameState {
         }
     }
 }
-
-const MIN_CLOT_MASS: f32 = 10.;
-const MAX_CLOT_MASS: f32 = 25.;
