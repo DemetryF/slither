@@ -19,8 +19,8 @@ impl Slithers {
         self.data.insert(id, slither).unwrap();
     }
 
-    pub fn remove(&mut self, id: SlitherID) {
-        self.data.remove(&id).unwrap();
+    pub fn remove(&mut self, id: SlitherID) -> Slither {
+        self.data.remove(&id).unwrap()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (SlitherID, &Slither)> {

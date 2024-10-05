@@ -9,3 +9,4 @@ ecolor = { version = "0.29.1", features = ["serde"] }
 emath = { version = "0.29.1", features = ["serde"] }
 
 macros = { path = "../macros" }
+rand = "0.8.5"

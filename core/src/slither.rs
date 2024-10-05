@@ -67,6 +67,10 @@ impl SlitherBody {
         *self.cells.last().unwrap()
     }
 
+    pub fn cells(&self) -> &[Pos2] {
+        &self.cells
+    }
+
     pub fn change_mass_by(&mut self, mass: f32) {
         self.mass += mass;
 
