@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::{Index, IndexMut};
 
 use serde::{Deserialize, Serialize};
 
@@ -29,5 +30,19 @@ impl Slithers {
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (SlitherID, &mut Slither)> {
         self.data.iter_mut().map(|(&id, slither)| (id, slither))
+    }
+}
+
+impl Index<SlitherID> for Slithers {
+    type Output = Slither;
+
+    fn index(&self, id: SlitherID) -> &Self::Output {
+        &self.data[&id]
+    }
+}
+
+impl IndexMut<SlitherID> for Slithers {
+    fn index_mut(&mut self, id: SlitherID) -> &mut Self::Output {
+        self.data.get_mut(&id).unwrap()
     }
 }

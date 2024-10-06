@@ -17,6 +17,14 @@ pub struct Slither {
 }
 
 impl Slither {
+    pub fn from_dir(color: Color32, pos: Pos2, dir: Vec2, mass: f32) -> Self {
+        Self {
+            color,
+            boost: false,
+            body: SlitherBody::from_dir(pos, dir, mass),
+        }
+    }
+
     pub fn do_move(&mut self, delta_time: f32) {
         self.body.do_move(self.speed(), delta_time);
     }
@@ -53,12 +61,20 @@ impl Slither {
 
 #[derive(Serialize, Deserialize)]
 pub struct SlitherBody {
-    pub direction: Vec2,
+    pub dir: Vec2,
     cells: Vec<Pos2>,
     mass: f32,
 }
 
 impl SlitherBody {
+    pub fn from_dir(pos: Pos2, dir: Vec2, mass: f32) -> Self {
+        Self {
+            dir,
+            cells: vec![pos],
+            mass,
+        }
+    }
+
     pub fn head(&self) -> Pos2 {
         self.cells[0]
     }
@@ -142,7 +158,7 @@ impl SlitherBody {
             .unwrap_or_else(|| {
                 let head = self.cells[0];
 
-                head + self.direction * delta_dist
+                head + self.dir * delta_dist
             });
     }
 
