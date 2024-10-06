@@ -1,11 +1,4 @@
-use std::f32::consts::PI;
-
-use emath::Vec2;
-use rand::rngs::ThreadRng;
-use rand::seq::SliceRandom;
-use rand::Rng;
-
-use crate::world::{World, MAX_CLOT_MASS, MIN_CLOT_MASS};
+use crate::world::World;
 use crate::{MassClot, SlitherID};
 
 pub struct GameState {
@@ -70,37 +63,12 @@ impl GameState {
             }
         }
 
+        let mut rng = rand::thread_rng();
+
         for &id in &self.crashed {
             let slither = self.world.slithers.remove(id);
 
-            let mut rnd = rand::thread_rng();
-
-            let mut mass = slither.body.mass();
-
-            let generate_clot = |mut rnd: &mut ThreadRng, amount| {
-                let &pos = slither.body.cells().choose(&mut rnd).unwrap();
-
-                let radius = rnd.gen_range(0.0..slither.body.cell_radius());
-                let angle = rnd.gen_range(0.0..2. * PI);
-
-                let pos = pos + Vec2::angled(angle) * radius;
-
-                let color = slither.color;
-
-                MassClot { pos, amount, color }
-            };
-
-            while mass > MIN_CLOT_MASS {
-                let amount = rnd.gen_range(MIN_CLOT_MASS..MAX_CLOT_MASS);
-
-                let clot = generate_clot(&mut rnd, amount);
-
-                self.world.clots.add(clot);
-
-                mass -= clot.amount;
-            }
-
-            self.world.clots.add(generate_clot(&mut rnd, mass));
+            self.world.distribute_slither_mass(slither, &mut rng);
         }
     }
 }
