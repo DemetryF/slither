@@ -1,0 +1,12 @@
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.40.0", features = ["full"] }
+rand = "0.8.5"
+ecolor = "0.29.1"
+emath = "0.29.1"
+
+core = { path = "../core" }

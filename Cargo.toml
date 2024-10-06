@@ -1,4 +1,4 @@
 [workspace]
 resolver = "2"
 
-members = ["core", "macros"]
+members = ["backend", "core", "macros"]
