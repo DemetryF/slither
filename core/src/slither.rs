@@ -17,7 +17,7 @@ pub struct Slither {
 }
 
 impl Slither {
-    pub fn from_dir(color: Color32, pos: Pos2, dir: Vec2, mass: f32) -> Self {
+    pub fn from_dir(color: Color32, pos: Pos2, dir: f32, mass: f32) -> Self {
         Self {
             color,
             boost: false,
@@ -61,13 +61,13 @@ impl Slither {
 
 #[derive(Serialize, Deserialize)]
 pub struct SlitherBody {
-    pub dir: Vec2,
+    pub dir: f32,
     cells: Vec<Pos2>,
     mass: f32,
 }
 
 impl SlitherBody {
-    pub fn from_dir(pos: Pos2, dir: Vec2, mass: f32) -> Self {
+    pub fn from_dir(pos: Pos2, dir: f32, mass: f32) -> Self {
         Self {
             dir,
             cells: vec![pos],
@@ -158,7 +158,7 @@ impl SlitherBody {
             .unwrap_or_else(|| {
                 let head = self.cells[0];
 
-                head + self.dir * delta_dist
+                head + Vec2::angled(self.dir) * delta_dist
             });
     }
 
