@@ -3,7 +3,7 @@ mod slithers;
 
 use std::f32::consts::PI;
 
-use emath::Vec2;
+use emath::{Pos2, Vec2};
 use rand::{seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 use slithers::Slithers;
@@ -63,5 +63,13 @@ impl World {
         }
 
         self.clots.add(generate_clot(rng, mass));
+    }
+
+    pub fn size(&self) -> Pos2 {
+        Pos2::new(self.width, self.height)
+    }
+
+    pub fn center(&self) -> Pos2 {
+        self.size() * 0.5
     }
 }
