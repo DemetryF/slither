@@ -10,3 +10,4 @@ ecolor = "0.29.1"
 emath = "0.29.1"
 
 core = { path = "../core" }
+protocol = { path = "../protocol" }

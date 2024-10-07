@@ -3,7 +3,6 @@ use std::f32::consts::PI;
 use std::time::Duration;
 
 use ecolor::Color32;
-use emath::Pos2;
 use rand::{rngs::OsRng, Rng};
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::sync::mpsc;
@@ -77,9 +76,7 @@ impl StateUpdater {
                             self.rng.gen_range(0..55) + 200,
                         );
 
-                        let world_center =
-                            Pos2::new(self.game_state.world.width, self.game_state.world.height)
-                                / 2.0;
+                        let world_center = self.game_state.world.center();
 
                         Slither::from_dir(color, world_center, PI / 2.0, INIT_SLITHER_MASS)
                     };

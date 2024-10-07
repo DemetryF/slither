@@ -1,5 +1,8 @@
+mod connection;
+mod listener;
 mod state_updater;
 
+use listener::Listener;
 use state_updater::StateUpdater;
 use tokio::sync::mpsc;
 
@@ -17,5 +20,11 @@ async fn main() {
             directions_rx,
         )
         .start(),
+    );
+
+    tokio::spawn(
+        Listener::start_on("192.168.0.11", connections_tx, directions_tx)
+            .await
+            .listen(),
     );
 }
