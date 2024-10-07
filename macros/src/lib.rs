@@ -15,13 +15,7 @@ pub fn id(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     quote! {
         #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
-        pub struct #struct_name(u32);
-
-        impl #struct_name {
-            pub(crate) fn new(id: u32) -> Self {
-                Self(id)
-            }
-        }
+        pub struct #struct_name(pub u32);
 
         impl Into<u32> for #struct_name {
             fn into(self) -> u32 {
