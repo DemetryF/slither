@@ -1,10 +1,10 @@
-use protocol::{AsyncReceive, ClientPacket};
 use tokio::net::tcp::OwnedReadHalf;
 use tokio::sync::mpsc;
 
 use core::SlitherID;
 
 use crate::state_updater::ConnectionMessage;
+use crate::transfer::AsyncReceive;
 
 pub struct Connection {
     pub id: SlitherID,
@@ -19,14 +19,14 @@ impl Connection {
         let mut buffer = Vec::new();
 
         loop {
-            let packet = ClientPacket::receive(&mut buffer, &mut self.read_socket).await;
+            let packet = protocol::ClientUpdate::receive(&mut buffer, &mut self.read_socket).await;
 
             match packet {
-                ClientPacket::Direction(dir) => {
+                protocol::ClientUpdate::Direction(dir) => {
                     self.update_direction(dir).await;
                 }
 
-                ClientPacket::Disconnect => {
+                protocol::ClientUpdate::Disconnect => {
                     self.disconnect().await;
                     break;
                 }
