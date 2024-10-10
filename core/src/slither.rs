@@ -14,12 +14,14 @@ pub struct Slither {
     pub color: Color32,
     pub boost: bool,
     pub body: SlitherBody,
+    pub nickname: String,
 }
 
 impl Slither {
-    pub fn from_dir(color: Color32, pos: Pos2, dir: f32, mass: f32) -> Self {
+    pub fn from_dir(color: Color32, pos: Pos2, dir: f32, mass: f32, nickname: String) -> Self {
         Self {
             color,
+            nickname,
             boost: false,
             body: SlitherBody::from_dir(pos, dir, mass),
         }

@@ -5,6 +5,7 @@ use tokio::sync::mpsc;
 
 use crate::connection::Connection;
 use crate::state_updater::ConnectionMessage;
+use crate::transfer::AsyncReceive;
 
 pub struct Listener {
     listener: TcpListener,
@@ -35,15 +36,23 @@ impl Listener {
             SlitherID(ids_counter - 1)
         };
 
+        let mut buffer = Vec::new();
+
         loop {
             let (stream, _) = self.listener.accept().await.unwrap();
 
-            let (read_socket, write_socket) = stream.into_split();
+            let (mut read_socket, write_socket) = stream.into_split();
 
             let id = next_id();
 
+            let join = protocol::PlayerJoin::receive(&mut buffer, &mut read_socket).await;
+
             self.connections_tx
-                .send(ConnectionMessage::Connected(id, write_socket))
+                .send(ConnectionMessage::Connected {
+                    id,
+                    write_socket,
+                    join,
+                })
                 .await
                 .unwrap();
 

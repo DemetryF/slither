@@ -20,6 +20,10 @@ impl Slithers {
         self.data.insert(id, slither).unwrap();
     }
 
+    pub fn get(&self, id: SlitherID) -> &Slither {
+        &self.data[&id]
+    }
+
     pub fn remove(&mut self, id: SlitherID) -> Slither {
         self.data.remove(&id).unwrap()
     }
