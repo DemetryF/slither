@@ -77,10 +77,6 @@ impl StateUpdater {
     }
 
     async fn handle_connections(&mut self) {
-        let session_start = protocol::SessionStart {
-            world_size: self.game_state.world.size(),
-        };
-
         while let Ok(message) = self.connections_rx.try_recv() {
             match message {
                 ConnectionMessage::Connected {
@@ -110,9 +106,12 @@ impl StateUpdater {
 
                     self.game_state.world.slithers.add(id, slither);
 
-                    session_start
-                        .send(&mut self.buffer, &mut write_socket)
-                        .await;
+                    protocol::SessionStart {
+                        world_size: self.game_state.world.size(),
+                        self_id: id,
+                    }
+                    .send(&mut self.buffer, &mut write_socket)
+                    .await;
 
                     self.connections.insert(id, write_socket);
                 }

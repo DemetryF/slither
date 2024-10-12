@@ -1,3 +1,5 @@
+use core::SlitherID;
+
 use ecolor::Color32;
 use emath::Pos2;
 use serde::{Deserialize, Serialize};
@@ -17,6 +19,7 @@ pub enum ClientUpdate {
 #[derive(Serialize, Deserialize)]
 pub struct SessionStart {
     pub world_size: Pos2,
+    pub self_id: SlitherID,
 }
 
 #[derive(Serialize, Deserialize)]
