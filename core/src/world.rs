@@ -16,7 +16,7 @@ pub use slithers::SlitherID;
 
 use crate::Slither;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct World {
     pub slithers: Slithers,
     pub clots: MassClots,
