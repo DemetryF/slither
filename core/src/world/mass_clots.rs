@@ -47,6 +47,10 @@ impl MassClots {
     pub fn retain(&mut self, mut f: impl FnMut(MassClot) -> bool) {
         self.data.retain(|&clot| f(clot));
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = MassClot> + '_ {
+        self.data.iter().copied()
+    }
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
