@@ -2,9 +2,10 @@ use std::net::{SocketAddr, TcpStream};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use egui::emath::TSTransform;
-use egui::{Align, CentralPanel, Color32, Frame, Margin, Pos2, Sense, TextEdit, Vec2};
+use egui::{Align, CentralPanel, Color32, Frame, Margin, Pos2, Sense, TextEdit};
 
 use core::{SlitherID, World};
 
@@ -22,6 +23,7 @@ pub enum App {
         self_id: SlitherID,
         world_size: Pos2,
         transform: TSTransform,
+        last_dir_updation: Instant,
     },
     None,
 }
@@ -95,6 +97,7 @@ impl eframe::App for App {
                         self_id,
                         world_size,
                         transform: Default::default(),
+                        last_dir_updation: Instant::now(),
                     };
 
                     return;
@@ -105,7 +108,8 @@ impl eframe::App for App {
                 ref mut state,
                 self_id,
                 ref mut transform,
-                world_size,
+                ref mut last_dir_updation,
+                ..
             } => {
                 ctx.request_repaint();
 
@@ -114,17 +118,20 @@ impl eframe::App for App {
 
                 transform.translation = -head_pos.to_vec2() + screen_center;
 
-                let dir = ctx.input(|i| i.pointer.hover_pos()).map(|mouse_pos| {
-                    let virtual_mouse_pos = transform.inverse() * mouse_pos;
+                if (Instant::now() - *last_dir_updation) > Duration::from_millis(100) {
+                    let mouse_pos = ctx.input(|i| i.pointer.hover_pos());
 
-                    (virtual_mouse_pos - head_pos).angle()
-                });
+                    if let Some(mouse_pos) = mouse_pos {
+                        *last_dir_updation = Instant::now();
 
-                if let Some(dir) = dir {
-                    state.change_dir(dir);
+                        let virtual_mouse_pos = transform.inverse() * mouse_pos;
+
+                        let new_dir = (virtual_mouse_pos - head_pos).angle();
+
+                        state.change_dir(new_dir);
+                    }
                 }
 
-                // draw
                 egui::CentralPanel::default()
                     .frame(Frame {
                         inner_margin: Margin::ZERO,
@@ -139,8 +146,6 @@ impl eframe::App for App {
                             raw: painter,
                             transform: *transform,
                         };
-
-                        painter.circle(world_size / 2.0 + Vec2::Y * 20., 8., Color32::DARK_BLUE);
 
                         state.world(|world| {
                             for clot in world.clots.iter() {
