@@ -16,6 +16,10 @@ pub struct Slithers {
 }
 
 impl Slithers {
+    pub fn exists(&self, id: SlitherID) -> bool {
+        self.data.contains_key(&id)
+    }
+
     pub fn add(&mut self, id: SlitherID, slither: Slither) {
         self.data.insert(id, slither);
     }
