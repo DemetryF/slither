@@ -17,7 +17,7 @@ pub struct Slithers {
 
 impl Slithers {
     pub fn add(&mut self, id: SlitherID, slither: Slither) {
-        self.data.insert(id, slither).unwrap();
+        self.data.insert(id, slither);
     }
 
     pub fn get(&self, id: SlitherID) -> &Slither {

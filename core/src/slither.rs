@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use ecolor::Color32;
 use emath::{Pos2, Vec2};
 use serde::{Deserialize, Serialize};
@@ -5,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::MassClot;
 
 /// How speed relates to mass
-const MASS_SPEED_COEF: f32 = 20.;
+const MASS_SPEED_COEF: f32 = 1000.;
 /// A percent of the slither's mass is losted during boosted movement
 const MASS_LOSS_WHEN_BOOST: f32 = 0.05;
 
@@ -28,12 +30,12 @@ impl Slither {
     }
 
     pub fn do_move(&mut self, delta_time: f32) {
-        self.body.do_move(self.speed(), delta_time);
+        self.body.move_on(self.speed() * delta_time);
     }
 
     /// moves with 2x speed and returns burned mass clot
     pub fn move_boosted(&mut self, delta_time: f32) -> f32 {
-        self.body.do_move(2. * self.speed(), delta_time);
+        self.body.move_on(2. * self.speed() * delta_time);
 
         let lost_mass = MASS_LOSS_WHEN_BOOST * self.body.mass() * delta_time;
 
@@ -57,7 +59,7 @@ impl Slither {
     }
 
     pub fn speed(&self) -> f32 {
-        self.body.mass() * MASS_SPEED_COEF
+        MASS_SPEED_COEF / self.body.mass().sqrt()
     }
 }
 
@@ -95,7 +97,11 @@ impl SlitherBody {
         self.resize();
     }
 
-    fn resize(&mut self) {
+    pub fn resize(&mut self) {
+        if self.cells.len() == self.size() {
+            return;
+        }
+
         self.cells
             .resize(self.size(), self.cells.last().copied().unwrap());
     }
@@ -113,38 +119,37 @@ impl SlitherBody {
     }
 
     pub fn cells_dist(&self) -> f32 {
-        self.cell_radius() * 0.2
+        self.cell_radius()
     }
 
-    fn do_move(&mut self, speed: f32, delta_time: f32) {
-        let delta_dist = speed * delta_time;
+    fn move_on(&mut self, dist: f32) {
+        for n in (1..self.cells.len()).rev() {
+            let prev = self.cells[n - 1];
+            let current = self.cells[n];
 
-        for n in 1..self.cells.len() - 1 {
-            let prev = self.cells[n];
-            let current = self.cells[n + 1];
+            let distance = prev.distance(current);
 
-            // wait until the next cell will move
-            if prev.distance(current) > self.cells_dist() {
-                for n in n..self.cells.len() - 1 {
-                    self.move_nth(n, delta_dist);
+            match distance.total_cmp(&self.cells_dist()) {
+                Ordering::Less => {
+                    self.move_nth(n, dist * 0.5);
                 }
-
-                break;
+                Ordering::Equal => {
+                    self.move_nth(n, dist);
+                }
+                Ordering::Greater => {
+                    self.move_nth(n, dist * 1.2);
+                }
             }
-
-            // wait until the prev cell will move
-            if prev.distance(current) < self.cells_dist() {
-                break;
-            }
-
-            self.move_nth(n, delta_dist);
         }
+
+        self.cells[0] += dist * Vec2::angled(self.dir);
     }
 
     fn move_nth(&mut self, n: usize, mut delta_dist: f32) {
-        self.cells[n] = self.cells[1..=n]
+        self.cells[n] = self.cells[0..=n]
             .iter()
             .enumerate()
+            .skip(1)
             .rev()
             .find_map(|(n, &cell)| {
                 let nth_dist = self.get_nth_dist(n);

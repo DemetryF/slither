@@ -22,6 +22,8 @@ impl GameState {
 
     fn moving(&mut self, delta_time: f32) {
         for (_, slither) in self.world.slithers.iter_mut() {
+            slither.body.resize();
+
             if slither.boost {
                 let lost_mass = slither.move_boosted(delta_time);
 
@@ -40,11 +42,11 @@ impl GameState {
         self.world.clots.retain(|clot| {
             for (_, slither) in self.world.slithers.iter_mut() {
                 if slither.try_eat(clot) {
-                    return true;
+                    return false;
                 }
             }
 
-            false
+            true
         });
     }
 

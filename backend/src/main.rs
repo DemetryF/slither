@@ -14,7 +14,7 @@ async fn main() {
     let (connections_tx, connections_rx) = mpsc::channel(1);
     let (directions_tx, directions_rx) = mpsc::channel(16);
 
-    tokio::spawn(
+    let updater = tokio::spawn(
         StateUpdater::new(
             GameState::new(World::new(2000., 2000., 2000.)),
             connections_rx,
@@ -23,9 +23,11 @@ async fn main() {
         .start(),
     );
 
-    tokio::spawn(
-        Listener::start_on("192.168.0.11", connections_tx, directions_tx)
+    let listener = tokio::spawn(
+        Listener::start_on("192.168.0.11:1488", connections_tx, directions_tx)
             .await
             .listen(),
     );
+
+    let _ = tokio::join!(updater, listener);
 }

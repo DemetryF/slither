@@ -52,12 +52,12 @@ impl StateUpdater {
         let mut last_tick_dur = 1. / MAX_TPS;
 
         loop {
+            let tick_start = Instant::now();
+
             sleep(Duration::from_secs_f32(
                 (1. / MAX_TPS - last_tick_dur).max(0.),
             ))
             .await;
-
-            let tick_start = Instant::now();
 
             self.update(last_tick_dur).await;
 
@@ -133,7 +133,7 @@ impl StateUpdater {
         while let Ok((id, dir)) = self.directions_rx.try_recv() {
             self.game_state.world.slithers[id].body.dir = dir;
 
-            todo!("limit the speed of the changing of the direction");
+            // TODO: "limit the speed of the changing of the direction"
         }
     }
 
@@ -155,6 +155,8 @@ impl StateUpdater {
     }
 
     async fn send(&mut self) {
+        self.buffer.clear();
+
         bincode::serialize_into(&mut self.buffer, &protocol::ServerUpdate::GameOver).unwrap();
 
         for &id in &self.game_state.crashed {
@@ -162,6 +164,8 @@ impl StateUpdater {
 
             write_socket.write_all(&self.buffer).await.unwrap();
         }
+
+        self.buffer.clear();
 
         bincode::serialize_into(&mut self.buffer, &protocol::ServerUpdate::World).unwrap();
         bincode::serialize_into(&mut self.buffer, &self.game_state.world).unwrap();
