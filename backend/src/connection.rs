@@ -1,5 +1,5 @@
 use tokio::net::tcp::OwnedReadHalf;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 
 use core::SlitherID;
 
@@ -12,6 +12,7 @@ pub struct Connection {
 
     pub directions_tx: mpsc::Sender<(SlitherID, f32)>,
     pub connections_tx: mpsc::Sender<ConnectionMessage>,
+    pub crash_rx: broadcast::Receiver<SlitherID>,
 }
 
 impl Connection {
@@ -19,17 +20,28 @@ impl Connection {
         let mut buffer = Vec::new();
 
         loop {
-            let packet = protocol::ClientUpdate::receive(&mut buffer, &mut self.read_socket).await;
+            if let Ok(id) = self.crash_rx.try_recv() {
+                if self.id == id {
+                    return;
+                }
+            }
 
-            match packet {
-                protocol::ClientUpdate::Direction(dir) => {
+            match protocol::ClientUpdate::receive(&mut buffer, &mut self.read_socket).await {
+                Ok(protocol::ClientUpdate::Direction(dir)) => {
                     self.update_direction(dir).await;
                 }
 
-                protocol::ClientUpdate::Disconnect => {
+                Ok(protocol::ClientUpdate::Disconnect) => {
                     self.disconnect().await;
                     break;
                 }
+
+                Err(e) if e.kind() == tokio::io::ErrorKind::ConnectionReset => {
+                    self.disconnect().await;
+                    break;
+                }
+
+                _ => {}
             }
         }
     }

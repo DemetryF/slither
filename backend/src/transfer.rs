@@ -12,16 +12,16 @@ pub trait AsyncReceive: DeserializeOwned {
     async fn receive(
         buffer: &mut Vec<u8>,
         reader: &mut (impl AsyncReadExt + std::marker::Unpin),
-    ) -> Self {
-        let packet_size = reader.read_u32().await.unwrap();
+    ) -> tokio::io::Result<Self> {
+        let packet_size = reader.read_u32().await?;
 
         buffer.clear();
 
         for _ in 0..packet_size {
-            buffer.push(reader.read_u8().await.unwrap());
+            buffer.push(reader.read_u8().await?);
         }
 
-        bincode::deserialize_from(buffer.as_slice()).unwrap()
+        Ok(bincode::deserialize_from(buffer.as_slice()).unwrap())
     }
 }
 
@@ -31,14 +31,16 @@ pub trait AsyncSend: Serialize {
         &self,
         mut buffer: &mut Vec<u8>,
         writer: &mut (impl AsyncWriteExt + std::marker::Unpin),
-    ) {
+    ) -> tokio::io::Result<()> {
         buffer.clear();
 
         bincode::serialize_into(&mut buffer, self).unwrap();
 
         let packet_size = buffer.len() as u32;
 
-        writer.write_u32(packet_size).await.unwrap();
-        writer.write_all(buffer.as_slice()).await.unwrap();
+        writer.write_u32(packet_size).await?;
+        writer.write_all(buffer.as_slice()).await?;
+
+        Ok(())
     }
 }

@@ -1,5 +1,6 @@
 use std::net::{SocketAddr, TcpStream};
 use std::str::FromStr;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -113,22 +114,24 @@ impl eframe::App for App {
             } => {
                 ctx.request_repaint();
 
-                let head_pos = state.world(|world| world.slithers.get(self_id).body.head());
-                let screen_center = ctx.screen_rect().size() / 2.0;
+                if !state.is_game_over() {
+                    let head_pos = state.world(|world| world.slithers.get(self_id).body.head());
+                    let screen_center = ctx.screen_rect().size() / 2.0;
 
-                transform.translation = -head_pos.to_vec2() + screen_center;
+                    transform.translation = -head_pos.to_vec2() + screen_center;
 
-                if (Instant::now() - *last_dir_updation) > Duration::from_millis(100) {
-                    let mouse_pos = ctx.input(|i| i.pointer.hover_pos());
+                    if (Instant::now() - *last_dir_updation) > Duration::from_millis(100) {
+                        let mouse_pos = ctx.input(|i| i.pointer.hover_pos());
 
-                    if let Some(mouse_pos) = mouse_pos {
-                        *last_dir_updation = Instant::now();
+                        if let Some(mouse_pos) = mouse_pos {
+                            *last_dir_updation = Instant::now();
 
-                        let virtual_mouse_pos = transform.inverse() * mouse_pos;
+                            let virtual_mouse_pos = transform.inverse() * mouse_pos;
 
-                        let new_dir = (virtual_mouse_pos - head_pos).angle();
+                            let new_dir = (virtual_mouse_pos - head_pos).angle();
 
-                        state.change_dir(new_dir);
+                            state.change_dir(new_dir);
+                        }
                     }
                 }
 
@@ -173,6 +176,7 @@ pub struct State {
     world: Arc<Mutex<World>>,
     socket: Arc<Mutex<TcpStream>>,
     top: Arc<Mutex<Vec<SlitherID>>>,
+    game_over: Arc<AtomicBool>,
 
     buffer: Vec<u8>,
 }
@@ -184,6 +188,7 @@ impl State {
             world: Default::default(),
             buffer: Default::default(),
             top: Default::default(),
+            game_over: Default::default(),
         }
     }
 
@@ -192,7 +197,10 @@ impl State {
             let info = bincode::deserialize_from(&mut *self.socket.lock().unwrap()).unwrap();
 
             match info {
-                protocol::ServerUpdate::GameOver => todo!(),
+                protocol::ServerUpdate::GameOver => {
+                    self.game_over
+                        .store(true, std::sync::atomic::Ordering::Relaxed);
+                }
 
                 protocol::ServerUpdate::PlayersTop => {
                     let top = bincode::deserialize_from(&mut *self.socket.lock().unwrap()).unwrap();
@@ -217,5 +225,9 @@ impl State {
 
     pub fn world<R>(&self, f: impl FnOnce(&World) -> R) -> R {
         f(&self.world.lock().unwrap())
+    }
+
+    pub fn is_game_over(&self) -> bool {
+        self.game_over.load(std::sync::atomic::Ordering::Relaxed)
     }
 }

@@ -1,7 +1,7 @@
 use core::SlitherID;
 
 use tokio::net::{TcpListener, ToSocketAddrs};
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 
 use crate::connection::Connection;
 use crate::state_updater::ConnectionMessage;
@@ -11,6 +11,7 @@ pub struct Listener {
     listener: TcpListener,
     connections_tx: mpsc::Sender<ConnectionMessage>,
     directions_tx: mpsc::Sender<(SlitherID, f32)>,
+    crash_rx: broadcast::Receiver<SlitherID>,
 }
 
 impl Listener {
@@ -18,6 +19,7 @@ impl Listener {
         addr: impl ToSocketAddrs,
         connections_tx: mpsc::Sender<ConnectionMessage>,
         directions_tx: mpsc::Sender<(SlitherID, f32)>,
+        crash_rx: broadcast::Receiver<SlitherID>,
     ) -> Self {
         let listener = TcpListener::bind(addr).await.unwrap();
 
@@ -25,6 +27,7 @@ impl Listener {
             listener,
             connections_tx,
             directions_tx,
+            crash_rx,
         }
     }
 
@@ -40,12 +43,13 @@ impl Listener {
 
         loop {
             let (stream, _) = self.listener.accept().await.unwrap();
-
             let (mut read_socket, write_socket) = stream.into_split();
 
             let id = next_id();
 
-            let join = protocol::PlayerJoin::receive(&mut buffer, &mut read_socket).await;
+            let join = protocol::PlayerJoin::receive(&mut buffer, &mut read_socket)
+                .await
+                .unwrap();
 
             self.connections_tx
                 .send(ConnectionMessage::Connected {
@@ -61,6 +65,7 @@ impl Listener {
                 read_socket,
                 directions_tx: self.directions_tx.clone(),
                 connections_tx: self.connections_tx.clone(),
+                crash_rx: self.crash_rx.resubscribe(),
             };
 
             tokio::spawn(connection.start());

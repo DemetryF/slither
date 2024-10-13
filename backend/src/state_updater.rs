@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::f32::consts::PI;
 use std::time::Duration;
 
@@ -7,7 +7,7 @@ use protocol::PlayerJoin;
 use rand::{rngs::OsRng, Rng};
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::OwnedWriteHalf;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 use tokio::time::{sleep, Instant};
 
 use core::{GameState, Slither, SlitherID};
@@ -25,10 +25,11 @@ pub struct StateUpdater {
     connections: HashMap<SlitherID, OwnedWriteHalf>,
 
     directions_rx: mpsc::Receiver<(SlitherID, f32)>,
+    crash_tx: broadcast::Sender<SlitherID>,
 
     rng: OsRng,
-
     buffer: Vec<u8>,
+    to_disconnect: HashSet<SlitherID>,
 }
 
 impl StateUpdater {
@@ -36,15 +37,18 @@ impl StateUpdater {
         game_state: GameState,
         connections_rx: mpsc::Receiver<ConnectionMessage>,
         directions_rx: mpsc::Receiver<(SlitherID, f32)>,
+        crash_tx: broadcast::Sender<SlitherID>,
     ) -> Self {
         Self {
             game_state,
             connections_rx,
             directions_rx,
+            crash_tx,
             rng: OsRng,
             connections: Default::default(),
             buffer: Default::default(),
             top: Default::default(),
+            to_disconnect: Default::default(),
         }
     }
 
@@ -66,14 +70,17 @@ impl StateUpdater {
     }
 
     pub async fn update(&mut self, delta_time: f32) {
+        self.update_direction();
         self.handle_connections().await;
-        self.update_directions();
 
         self.game_state.update(delta_time);
 
         self.update_top();
 
         self.send().await;
+
+        self.handle_crashed();
+        self.handle_disconnected();
     }
 
     async fn handle_connections(&mut self) {
@@ -111,29 +118,30 @@ impl StateUpdater {
                         self_id: id,
                     }
                     .send(&mut self.buffer, &mut write_socket)
-                    .await;
+                    .await
+                    .unwrap();
 
                     self.connections.insert(id, write_socket);
                 }
 
                 ConnectionMessage::Disconnected(id) => {
-                    self.connections.remove(&id).unwrap();
-
-                    let slither = self.game_state.world.slithers.remove(id);
-
-                    self.game_state
-                        .world
-                        .distribute_slither_mass(slither, &mut self.rng);
+                    self.to_disconnect.insert(id);
                 }
             }
         }
     }
 
-    fn update_directions(&mut self) {
+    fn update_direction(&mut self) {
         while let Ok((id, dir)) = self.directions_rx.try_recv() {
             self.game_state.world.slithers[id].body.dir = dir;
 
             // TODO: "limit the speed of the changing of the direction"
+        }
+    }
+
+    fn handle_crashed(&mut self) {
+        for &id in &self.game_state.crashed {
+            self.crash_tx.send(id).unwrap();
         }
     }
 
@@ -172,9 +180,32 @@ impl StateUpdater {
         bincode::serialize_into(&mut self.buffer, &protocol::ServerUpdate::PlayersTop).unwrap();
         bincode::serialize_into(&mut self.buffer, &self.top).unwrap();
 
-        for write_socket in self.connections.values_mut() {
-            write_socket.write_all(&self.buffer).await.unwrap();
+        for (&id, write_socket) in self.connections.iter_mut() {
+            let result = write_socket.write_all(&self.buffer).await;
+
+            if result.is_err() {
+                self.to_disconnect.insert(id);
+            }
         }
+    }
+
+    fn handle_disconnected(&mut self) {
+        for &id in &self.to_disconnect {
+            if !self.game_state.world.slithers.exists(id) {
+                continue;
+            }
+
+            self.connections.remove(&id);
+            self.crash_tx.send(id).unwrap();
+
+            let slither = self.game_state.world.slithers.remove(id);
+
+            self.game_state
+                .world
+                .distribute_slither_mass(slither, &mut self.rng);
+        }
+
+        self.to_disconnect.clear();
     }
 }
 
