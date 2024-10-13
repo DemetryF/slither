@@ -14,7 +14,7 @@ pub fn id(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let struct_name = ast.ident;
 
     quote! {
-        #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, Debug)]
         pub struct #struct_name(pub u32);
 
         impl Into<u32> for #struct_name {
