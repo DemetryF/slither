@@ -23,6 +23,8 @@ impl Listener {
     ) -> Self {
         let listener = TcpListener::bind(addr).await.unwrap();
 
+        println!("start on {} port", listener.local_addr().unwrap().port());
+
         Self {
             listener,
             connections_tx,

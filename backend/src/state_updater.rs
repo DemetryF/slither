@@ -133,9 +133,11 @@ impl StateUpdater {
 
     fn update_direction(&mut self) {
         while let Ok((id, dir)) = self.directions_rx.try_recv() {
-            self.game_state.world.slithers[id].body.dir = dir;
+            if self.game_state.world.slithers.exists(id) {
+                self.game_state.world.slithers[id].body.dir = dir;
 
-            // TODO: "limit the speed of the changing of the direction"
+                // TODO: "limit the speed of the changing of the direction"
+            }
         }
     }
 

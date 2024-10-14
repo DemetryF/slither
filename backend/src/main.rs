@@ -34,8 +34,6 @@ async fn main() {
     let ip = Ipv4Addr::new(0, 0, 0, 0);
     let addr = SocketAddr::new(ip.into(), port);
 
-    println!("start on {addr}");
-
     let listener = tokio::spawn(
         Listener::start_on(addr, connections_tx, directions_tx, crash_rx)
             .await
