@@ -6,7 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use egui::emath::TSTransform;
-use egui::{Align, CentralPanel, Color32, Margin, Pos2, Sense, TextEdit};
+use egui::{Align, CentralPanel, Color32, Margin, Pos2, Rect, Sense, Stroke, TextEdit};
 
 use core::{SlitherID, World};
 
@@ -172,6 +172,12 @@ impl Game {
     }
 
     fn draw(&self, painter: &Painter) {
+        painter.rect(
+            Rect::from_min_max(Pos2::ZERO, self.world_size),
+            Color32::from_gray(30),
+            Stroke::new(2.0, Color32::from_gray(10)),
+        );
+
         self.state.world(|world| {
             for clot in world.clots.iter() {
                 let color = clot.color.linear_multiply(0.3);
@@ -191,6 +197,7 @@ impl Game {
         egui::CentralPanel::default().frame(egui::Frame {
             inner_margin: Margin::ZERO,
             outer_margin: Margin::ZERO,
+            fill: Color32::from_gray(20),
             ..Default::default()
         })
     }

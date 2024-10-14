@@ -1,6 +1,6 @@
 use egui::emath::TSTransform;
-use egui::epaint::CircleShape;
-use egui::{Color32, Pos2, Stroke};
+use egui::epaint::{CircleShape, RectShape};
+use egui::{Color32, Pos2, Rect, Rounding, Stroke};
 
 #[derive(Clone)]
 pub struct Painter {
@@ -9,15 +9,17 @@ pub struct Painter {
 }
 
 impl Painter {
+    pub fn rect(&self, rect: Rect, color: Color32, stroke: Stroke) {
+        self.draw(RectShape::new(rect, Rounding::ZERO, color, stroke))
+    }
+
     pub fn circle(&self, center: Pos2, radius: f32, color: Color32) {
-        let shape = CircleShape {
+        self.draw(CircleShape {
             center,
             radius,
             fill: color,
             stroke: Stroke::NONE,
-        };
-
-        self.draw(shape);
+        });
     }
 
     pub fn draw(&self, shape: impl Into<egui::Shape>) {
