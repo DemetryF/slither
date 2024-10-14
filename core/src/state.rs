@@ -1,3 +1,5 @@
+use emath::{Rect, Vec2};
+
 use crate::world::World;
 use crate::{MassClot, SlitherID};
 
@@ -54,6 +56,15 @@ impl GameState {
         self.crashed.clear();
 
         for (id, slither) in self.world.slithers.iter() {
+            let offset = Vec2::splat(slither.body.cell_radius());
+
+            let acceptable_area = Rect::from_min_max(offset.to_pos2(), self.world.size() - offset);
+
+            if !acceptable_area.contains(slither.body.head()) {
+                self.crashed.push(id);
+                continue;
+            }
+
             for (other_id, other) in self.world.slithers.iter() {
                 if id == other_id {
                     continue;
