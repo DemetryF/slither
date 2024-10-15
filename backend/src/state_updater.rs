@@ -92,13 +92,10 @@ impl StateUpdater {
                     mut write_socket,
                 } => {
                     let slither = {
-                        let color = join.color.unwrap_or_else(|| {
-                            Color32::from_rgb(
-                                self.rng.gen_range(0..55) + 200,
-                                self.rng.gen_range(0..55) + 200,
-                                self.rng.gen_range(0..55) + 200,
-                            )
-                        });
+                        let color = join
+                            .color
+                            .map(|color| color.to_opaque())
+                            .unwrap_or_else(|| random_color(&mut self.rng));
 
                         let world_center = self.game_state.world.center();
 
@@ -218,4 +215,12 @@ pub enum ConnectionMessage {
         write_socket: OwnedWriteHalf,
     },
     Disconnected(SlitherID),
+}
+
+fn random_color(mut rng: impl Rng) -> Color32 {
+    Color32::from_rgb(
+        rng.gen_range(0..55) + 200,
+        rng.gen_range(0..55) + 200,
+        rng.gen_range(0..55) + 200,
+    )
 }
