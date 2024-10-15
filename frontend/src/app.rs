@@ -32,8 +32,15 @@ impl eframe::App for App {
                     };
 
                     match launcher.try_start() {
-                        Ok(game) => *self = Self::Game(game),
-                        Err(launcher) => *self = Self::Launcher(launcher),
+                        Ok(game) => {
+                            *self = Self::Game(game);
+                        }
+
+                        Err((mut launcher, err)) => {
+                            launcher.set_err(err);
+
+                            *self = Self::Launcher(launcher);
+                        }
                     }
                 }
             }
@@ -53,6 +60,7 @@ pub struct Launcher {
     nickname: String,
     color: Color32,
     join_clicked: bool,
+    err: Option<JoinError>,
 }
 
 impl Launcher {
@@ -74,21 +82,25 @@ impl Launcher {
                 ui.color_edit_button_srgba(&mut self.color);
 
                 self.join_clicked = ui.button("join").clicked();
+
+                if let Some(err) = self.err {
+                    ui.colored_label(Color32::DARK_RED, err.message());
+                }
             })
         });
     }
 
-    pub fn try_start(self) -> Result<Game, Launcher> {
+    pub fn try_start(self) -> Result<Game, (Launcher, JoinError)> {
         let Ok(addr) = SocketAddr::from_str(&self.server_ip) else {
-            return Err(self);
+            return Err((self, JoinError::InvalidSocketAddr));
         };
 
         if self.nickname.is_empty() {
-            return Err(self);
+            return Err((self, JoinError::EmptyNickname));
         }
 
         let Ok(mut socket) = TcpStream::connect(addr) else {
-            return Err(self);
+            return Err((self, JoinError::WrongSocketAddr));
         };
 
         let mut buffer = Vec::new();
@@ -118,6 +130,10 @@ impl Launcher {
             dir_tx,
             world_size: start.world_size,
         })
+    }
+
+    pub fn set_err(&mut self, err: JoinError) {
+        self.err = Some(err);
     }
 }
 
@@ -209,5 +225,22 @@ impl Game {
             fill: Color32::from_gray(20),
             ..Default::default()
         })
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum JoinError {
+    EmptyNickname,
+    InvalidSocketAddr,
+    WrongSocketAddr,
+}
+
+impl JoinError {
+    pub fn message(self) -> &'static str {
+        match self {
+            JoinError::EmptyNickname => "error: empty nickname",
+            JoinError::InvalidSocketAddr => "error: invalid socket address",
+            JoinError::WrongSocketAddr => "error: wrong socket address",
+        }
     }
 }
