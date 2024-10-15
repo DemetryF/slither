@@ -1,4 +1,5 @@
 mod app;
+mod mutex_ext;
 mod painter;
 mod transfer;
 

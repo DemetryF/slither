@@ -1,7 +1,8 @@
 use std::net::{SocketAddr, TcpStream};
 use std::str::FromStr;
-use std::sync::atomic::{self, AtomicBool};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic;
+use std::sync::atomic::AtomicBool;
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -10,6 +11,7 @@ use egui::{Align, CentralPanel, Color32, Margin, Pos2, Rect, Sense, Stroke, Text
 
 use core::{SlitherID, World};
 
+use crate::mutex_ext::MutexExt;
 use crate::painter::Painter;
 use crate::transfer::{SyncReceive, SyncSend};
 
@@ -86,7 +88,7 @@ impl Launcher {
             return Err(self);
         }
 
-        let Ok(mut listener) = TcpStream::connect(addr) else {
+        let Ok(mut socket) = TcpStream::connect(addr) else {
             return Err(self);
         };
 
@@ -96,29 +98,36 @@ impl Launcher {
             color: Some(self.color),
             nickname: self.nickname,
         }
-        .send(&mut buffer, &mut listener);
+        .send(&mut buffer, &mut socket);
 
-        let start = protocol::SessionStart::receive(&mut buffer, &mut listener);
+        let start = protocol::SessionStart::receive(&mut buffer, &mut socket);
 
-        let state = State::new(listener);
+        let state = Arc::new(State::default());
 
-        state.clone().receive();
+        let (dir_tx, dir_rx) = mpsc::channel();
+
+        {
+            let state = Arc::clone(&state);
+            thread::spawn(move || StateUpdater::new(state, socket, dir_rx).receive());
+        }
 
         Ok(Game {
             state,
             self_id: start.self_id,
             transform: TSTransform::IDENTITY,
             last_dir_upd: Instant::now(),
+            dir_tx,
             world_size: start.world_size,
         })
     }
 }
 
 pub struct Game {
-    pub state: State,
+    pub state: Arc<State>,
     pub self_id: SlitherID,
     pub transform: TSTransform,
     pub last_dir_upd: Instant,
+    pub dir_tx: mpsc::Sender<f32>,
     pub world_size: Pos2,
 }
 
@@ -162,13 +171,14 @@ impl Game {
 
             let dir = (virtual_mouse_pos - self.head_pos()).angle();
 
-            self.state.change_dir(dir);
+            self.dir_tx.send(dir).unwrap();
         }
     }
 
     fn head_pos(&self) -> Pos2 {
         self.state
-            .world(|world| world.slithers.get(self.self_id).body.head())
+            .world
+            .lock_with(|world| world.slithers.get(self.self_id).body.head())
     }
 
     fn draw(&self, painter: &Painter) {
@@ -178,7 +188,7 @@ impl Game {
             Stroke::new(2.0, Color32::from_gray(10)),
         );
 
-        self.state.world(|world| {
+        self.state.world.lock_with(|world| {
             for clot in world.clots.iter() {
                 let color = clot.color.linear_multiply(0.3);
 
@@ -203,65 +213,64 @@ impl Game {
     }
 }
 
-#[derive(Clone)]
+#[derive(Default)]
 pub struct State {
-    world: Arc<Mutex<World>>,
-    socket: Arc<Mutex<TcpStream>>,
-    top: Arc<Mutex<Vec<SlitherID>>>,
-    game_over: Arc<AtomicBool>,
+    pub world: Mutex<World>,
+    pub game_over: AtomicBool,
+    pub top: Mutex<Vec<SlitherID>>,
+}
+
+impl State {
+    pub fn is_game_over(&self) -> bool {
+        self.game_over.load(atomic::Ordering::Relaxed)
+    }
+}
+
+pub struct StateUpdater {
+    state: Arc<State>,
+    socket: TcpStream,
+    dir_rx: mpsc::Receiver<f32>,
 
     buffer: Vec<u8>,
 }
 
-impl State {
-    pub fn new(socket: TcpStream) -> Self {
+impl StateUpdater {
+    pub fn new(state: Arc<State>, socket: TcpStream, dir_rx: mpsc::Receiver<f32>) -> Self {
         Self {
-            socket: Arc::new(Mutex::new(socket)),
-            world: Default::default(),
-            buffer: Default::default(),
-            top: Default::default(),
-            game_over: Default::default(),
+            state,
+            socket,
+            dir_rx,
+            buffer: Vec::new(),
         }
     }
 
-    pub fn receive(self) {
-        thread::spawn(move || loop {
-            let info = self.socket(|socket| bincode::deserialize_from(socket).unwrap());
+    pub fn receive(mut self) {
+        loop {
+            let info = bincode::deserialize_from(&mut self.socket).unwrap();
 
             match info {
                 protocol::ServerUpdate::GameOver => {
-                    self.game_over.store(true, atomic::Ordering::Relaxed);
+                    self.state.game_over.store(true, atomic::Ordering::Relaxed);
                 }
 
                 protocol::ServerUpdate::PlayersTop => {
-                    let top = self.socket(|socket| bincode::deserialize_from(socket).unwrap());
+                    let new_top = bincode::deserialize_from(&mut self.socket).unwrap();
 
-                    *self.top.lock().unwrap() = top;
+                    self.state.top.lock_with_mut(move |top| *top = new_top);
                 }
 
                 protocol::ServerUpdate::World => {
-                    let world = self.socket(|socket| bincode::deserialize_from(socket).unwrap());
+                    let new_world = bincode::deserialize_from(&mut self.socket).unwrap();
 
-                    *self.world.lock().unwrap() = world;
+                    self.state
+                        .world
+                        .lock_with_mut(move |world| *world = new_world);
                 }
             }
-        });
-    }
 
-    pub fn change_dir(&mut self, dir: f32) {
-        protocol::ClientUpdate::Direction(dir)
-            .send(&mut self.buffer, &mut *self.socket.lock().unwrap());
-    }
-
-    pub fn world<R>(&self, f: impl FnOnce(&World) -> R) -> R {
-        f(&self.world.lock().unwrap())
-    }
-
-    pub fn socket<R>(&self, f: impl FnOnce(&mut TcpStream) -> R) -> R {
-        f(&mut self.socket.lock().unwrap())
-    }
-
-    pub fn is_game_over(&self) -> bool {
-        self.game_over.load(atomic::Ordering::Relaxed)
+            if let Ok(dir) = self.dir_rx.try_recv() {
+                protocol::ClientUpdate::Direction(dir).send(&mut self.buffer, &mut self.socket);
+            }
+        }
     }
 }
