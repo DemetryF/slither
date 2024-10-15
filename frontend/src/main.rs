@@ -1,6 +1,7 @@
 mod app;
 mod mutex_ext;
 mod painter;
+mod state;
 mod transfer;
 
 use eframe::NativeOptions;
