@@ -11,6 +11,10 @@ const MASS_SPEED_COEF: f32 = 1000.;
 /// A percent of the slither's mass is losted during boosted movement
 const MASS_LOSS_WHEN_BOOST: f32 = 0.05;
 
+const MASS_TO_AREA_COEF: f32 = 1.;
+const RADIUS_TO_DIST_COEF: f32 = 0.2;
+const RADIUS_TO_SIZE_COEF: f32 = 1.;
+
 #[derive(Serialize, Deserialize)]
 pub struct Slither {
     pub color: Color32,
@@ -59,7 +63,7 @@ impl Slither {
     }
 
     pub fn speed(&self) -> f32 {
-        MASS_SPEED_COEF / self.body.mass().sqrt()
+        MASS_SPEED_COEF / self.body.mass().cbrt()
     }
 }
 
@@ -111,11 +115,17 @@ impl SlitherBody {
     }
 
     pub fn size(&self) -> usize {
-        (self.mass / 20.).floor() as usize
+        (MASS_TO_AREA_COEF * self.mass()
+            / 2.
+            / RADIUS_TO_DIST_COEF
+            / RADIUS_TO_SIZE_COEF.powf(3. / 2.))
+        .powf(2. / 7.)
+        .floor() as usize
     }
 
     pub fn cell_radius(&self) -> f32 {
-        self.mass.sqrt()
+        (MASS_TO_AREA_COEF * self.mass() / 2.0 / RADIUS_TO_DIST_COEF / RADIUS_TO_SIZE_COEF)
+            .powf(3. / 8.)
     }
 
     pub fn cells_dist(&self) -> f32 {
