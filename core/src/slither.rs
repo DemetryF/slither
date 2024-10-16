@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, f32::consts::PI};
 
 use ecolor::Color32;
 use emath::{Pos2, Vec2};
@@ -10,6 +10,7 @@ use crate::MassClot;
 const MASS_SPEED_COEF: f32 = 1000.;
 /// A percent of the slither's mass is losted during boosted movement
 const MASS_LOSS_WHEN_BOOST: f32 = 0.05;
+const MAX_CHANGE_DIR_SPEED: f32 = 8. * PI;
 
 const MASS_TO_AREA_COEF: f32 = 1.;
 const RADIUS_TO_DIST_COEF: f32 = 0.2;
@@ -65,11 +66,35 @@ impl Slither {
     pub fn speed(&self) -> f32 {
         MASS_SPEED_COEF / self.body.mass().cbrt()
     }
+
+    pub fn change_dir(&mut self, new_dir: f32, delta_time: f32) {
+        let old_dir = self.body.dir;
+
+        let old_dir = old_dir.rem_euclid(2. * PI);
+        let new_dir = new_dir.rem_euclid(2. * PI);
+
+        let delta_dir = new_dir - old_dir;
+
+        let delta_dir = if delta_dir.abs() > PI {
+            -(delta_dir % PI)
+        } else {
+            delta_dir
+        };
+
+        let delta_dir = delta_dir.clamp(
+            -MAX_CHANGE_DIR_SPEED * delta_time,
+            MAX_CHANGE_DIR_SPEED * delta_time,
+        );
+
+        let new_dir = (old_dir + delta_dir).rem_euclid(2. * PI);
+
+        self.body.dir = new_dir;
+    }
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SlitherBody {
-    pub dir: f32,
+    dir: f32,
     cells: Vec<Pos2>,
     mass: f32,
 }

@@ -16,7 +16,6 @@ use crate::transfer::AsyncSend;
 
 const INIT_SLITHER_MASS: f32 = 100.;
 const MAX_TPS: f32 = 60.;
-const MAX_CHANGE_DIR_SPEED: f32 = 8. * PI;
 
 pub struct StateUpdater {
     game_state: GameState,
@@ -132,27 +131,7 @@ impl StateUpdater {
     fn update_directions(&mut self, delta_time: f32) {
         while let Ok((id, new_dir)) = self.directions_rx.try_recv() {
             if self.game_state.world.slithers.exists(id) {
-                let old_dir = self.game_state.world.slithers[id].body.dir;
-
-                let old_dir = old_dir.rem_euclid(2. * PI);
-                let new_dir = new_dir.rem_euclid(2. * PI);
-
-                let delta_dir = new_dir - old_dir;
-
-                let delta_dir = if delta_dir.abs() > PI {
-                    -(delta_dir % PI)
-                } else {
-                    delta_dir
-                };
-
-                let delta_dir = delta_dir.clamp(
-                    -MAX_CHANGE_DIR_SPEED * delta_time,
-                    MAX_CHANGE_DIR_SPEED * delta_time,
-                );
-
-                let new_dir = (old_dir + delta_dir).rem_euclid(2. * PI);
-
-                self.game_state.world.slithers[id].body.dir = new_dir;
+                self.game_state.world.slithers[id].change_dir(new_dir, delta_time);
             }
         }
     }
